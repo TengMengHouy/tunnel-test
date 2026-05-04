@@ -73,7 +73,7 @@ public class TunnelController {
                     tokenRepository.save(t);
                     return ResponseEntity.<Void>noContent().build();
                 })
-                .orElse(ResponseEntity.notFound().build());
+                .orElse(ResponseEntity.<Void>notFound().build());
     }
 
     @GetMapping("/api/tokens")
