@@ -1,0 +1,19 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: stadoor-dashboard
+  web:
+    resources:
+      static-locations: classpath:/static/
+
+stadoor:
+  tunnel-server:
+    url: http://localhost:8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

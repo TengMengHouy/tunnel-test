@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stadoor — Tunnel Dashboard</title>
+  <meta name="description" content="Stadoor self-hosted tunnel service dashboard. Monitor active tunnels and manage access tokens." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0a0d14;
+      --surface:   #111827;
+      --card:      #1a2235;
+      --border:    #1e2d45;
+      --accent:    #3b82f6;
+      --accent-glow: rgba(59,130,246,0.25);
+      --green:     #10b981;
+      --green-dim: rgba(16,185,129,0.15);
+      --red:       #ef4444;
+      --red-dim:   rgba(239,68,68,0.15);
+      --yellow:    #f59e0b;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --mono:      'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background grid ───────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(59,130,246,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,130,246,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ────────────────────────────────────────── */
+    header {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 40px;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      background: rgba(10,13,20,0.85);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-icon {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 6px 14px;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+      50%       { opacity: 0.8; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+    }
+
+    /* ── Main layout ───────────────────────────────────── */
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 40px 40px;
+    }
+
+    /* ── Stats row ─────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 36px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+
+    .stat-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--text), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Section headers ───────────────────────────────── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px; height: 18px;
+      border-radius: 2px;
+      background: linear-gradient(180deg, var(--accent), #8b5cf6);
+    }
+
+    /* ── Buttons ───────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #6366f1);
+      color: white;
+      box-shadow: 0 4px 15px var(--accent-glow);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(59,130,246,0.4);
+    }
+
+    .btn-danger {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid rgba(239,68,68,0.3);
+    }
+
+    .btn-danger:hover {
+      background: rgba(239,68,68,0.25);
+      transform: translateY(-1px);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover {
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    /* ── Table ─────────────────────────────────────────── */
+    .table-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 36px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: rgba(30,45,69,0.8);
+    }
+
+    th {
+      padding: 14px 20px;
+      text-align: left;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 16px 20px;
+      font-size: 0.875rem;
+      border-top: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    tr:hover td { background: rgba(59,130,246,0.04); }
+
+    .mono { font-family: var(--mono); font-size: 0.8rem; }
+
+    .tunnel-url {
+      color: var(--accent);
+      text-decoration: none;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      transition: color 0.2s;
+    }
+
+    .tunnel-url:hover { color: #93c5fd; text-decoration: underline; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+
+    .badge-green { background: var(--green-dim); color: var(--green); }
+    .badge-red   { background: var(--red-dim);   color: var(--red); }
+
+    .empty-state {
+      padding: 60px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .empty-state .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 16px;
+      opacity: 0.3;
+    }
+
+    /* ── Refresh indicator ─────────────────────────────── */
+    .refresh-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .refresh-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+
+    .refreshing .refresh-spinner { display: block; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Modal ─────────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 25px 80px rgba(0,0,0,0.6);
+      transform: scale(0.95);
+      transition: transform 0.25s;
+    }
+
+    .modal-backdrop.open .modal { transform: scale(1); }
+
+    .modal h2 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .modal p { color: var(--muted); font-size: 0.875rem; margin-bottom: 24px; }
+
+    .form-group { margin-bottom: 20px; }
+
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .form-group input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .form-group input:focus { border-color: var(--accent); }
+
+    .token-display {
+      background: var(--surface);
+      border: 1px solid var(--green);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin: 20px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .token-display code {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      color: var(--green);
+      word-break: break-all;
+      flex: 1;
+    }
+
+    .copy-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 1.1rem;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+
+    .copy-btn:hover { color: var(--green); }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    .alert {
+      background: rgba(16,185,129,0.1);
+      border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 0.82rem;
+      color: var(--green);
+      margin-bottom: 20px;
+    }
+
+    /* ── Toast ─────────────────────────────────────────── */
+    .toast-container {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 20px;
+      font-size: 0.875rem;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+      animation: slideIn 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to   { transform: translateX(0);   opacity: 1; }
+    }
+
+    @media (max-width: 768px) {
+      header { padding: 16px 20px; }
+      main   { padding: 24px 20px; }
+      th, td { padding: 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🚪</div>
+    <span>Stadoor</span>
+  </div>
+  <div class="header-right">
+    <div class="status-badge">
+      <div class="status-dot"></div>
+      <span>Live</span>
+    </div>
+    <div id="refreshIndicator" class="refresh-indicator">
+      <div class="refresh-spinner"></div>
+      <span id="lastRefresh">—</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Stats -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Active Tunnels</div>
+      <div class="stat-value" id="statTunnels">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Tokens</div>
+      <div class="stat-value" id="statTokens">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Tokens</div>
+      <div class="stat-value" id="statActiveTokens">—</div>
+    </div>
+  </div>
+
+  <!-- Tunnels table -->
+  <div class="section-header">
+    <h2 class="section-title">Active Tunnels</h2>
+  </div>
+  <div class="table-wrap">
+    <table id="tunnelsTable">
+      <thead>
+        <tr>
+          <th>Subdomain</th>
+          <th>Public URL</th>
+          <th>Port</th>
+          <th>Token</th>
+          <th>Connected At</th>
+        </tr>
+      </thead>
+      <tbody id="tunnelsBody">
+        <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🌐</div><p>No active tunnels</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Tokens table -->
+  <div class="section-header">
+    <h2 class="section-title">Access Tokens</h2>
+    <button class="btn btn-primary" id="generateTokenBtn" onclick="openGenerateModal()">
+      <span>＋</span> Generate Token
+    </button>
+  </div>
+  <div class="table-wrap">
+    <table id="tokensTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Token</th>
+          <th>Status</th>
+          <th>Created At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="tokensBody">
+        <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🔑</div><p>No tokens</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+
+<!-- Generate Token Modal -->
+<div class="modal-backdrop" id="generateModal">
+  <div class="modal">
+    <h2>Generate Access Token</h2>
+    <p>Create a new token to authenticate SSH tunnel connections.</p>
+    <div id="generateForm">
+      <div class="form-group">
+        <label>Token Name</label>
+        <input type="text" id="tokenName" placeholder="e.g. my-laptop" />
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeGenerateModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="generateToken()">Generate</button>
+      </div>
+    </div>
+    <div id="tokenResult" style="display:none">
+      <div class="alert">✅ Token generated! Copy it now — it won't be shown again.</div>
+      <div class="form-group"><label>Token Name</label><input type="text" id="generatedName" readonly /></div>
+      <div class="form-group">
+        <label>Access Token</label>
+        <div class="token-display">
+          <code id="generatedToken"></code>
+          <button class="copy-btn" onclick="copyToken()" title="Copy">📋</button>
+        </div>
+      </div>
+      <div class="form-group"><label>SSH Command</label>
+        <div class="token-display">
+          <code id="sshCommand"></code>
+          <button class="copy-btn" onclick="copySSH()" title="Copy">📋</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" onclick="closeGenerateModal()">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const REFRESH_MS = 5000;
+  let refreshTimer = null;
+
+  // ── Data fetch ──────────────────────────────────────────────────────────────
+  async function fetchData() {
+    setRefreshing(true);
+    try {
+      const [tunnels, tokens] = await Promise.all([
+        fetch('/api/tunnels').then(r => r.json()),
+        fetch('/api/tokens').then(r => r.json()),
+      ]);
+      renderTunnels(tunnels);
+      renderTokens(tokens);
+      updateStats(tunnels, tokens);
+      document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    } catch (e) {
+      showToast('⚠️ Failed to fetch data', 'error');
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  function setRefreshing(on) {
+    document.getElementById('refreshIndicator').classList.toggle('refreshing', on);
+  }
+
+  // ── Stats ───────────────────────────────────────────────────────────────────
+  function updateStats(tunnels, tokens) {
+    document.getElementById('statTunnels').textContent = tunnels.length;
+    document.getElementById('statTokens').textContent = tokens.length;
+    document.getElementById('statActiveTokens').textContent = tokens.filter(t => t.isActive || t.active).length;
+  }
+
+  // ── Tunnels table ───────────────────────────────────────────────────────────
+  function renderTunnels(tunnels) {
+    const tbody = document.getElementById('tunnelsBody');
+    if (!tunnels.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🌐</div><p>No active tunnels</p></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = tunnels.map(t => `
+      <tr>
+        <td><span class="mono">${esc(t.subdomain)}</span></td>
+        <td><a class="tunnel-url" href="${esc(t.url)}" target="_blank">${esc(t.url)}</a></td>
+        <td><span class="mono">${t.assignedPort}</span></td>
+        <td>${esc(t.tokenName || '—')}</td>
+        <td>${formatTime(t.connectedAt)}</td>
+      </tr>`).join('');
+  }
+
+  // ── Tokens table ────────────────────────────────────────────────────────────
+  function renderTokens(tokens) {
+    const tbody = document.getElementById('tokensBody');
+    if (!tokens.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🔑</div><p>No tokens yet</p></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = tokens.map(t => {
+      const active = t.isActive || t.active;
+      return `
+        <tr>
+          <td>${esc(t.name)}</td>
+          <td><span class="mono">${esc(t.token.substring(0,12))}…</span></td>
+          <td><span class="badge ${active ? 'badge-green' : 'badge-red'}">${active ? '● Active' : '○ Revoked'}</span></td>
+          <td>${formatTime(t.createdAt)}</td>
+          <td>${active ? `<button class="btn btn-danger" onclick="revokeToken('${esc(t.token)}')">Revoke</button>` : '—'}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // ── Token generation ────────────────────────────────────────────────────────
+  function openGenerateModal() {
+    document.getElementById('generateForm').style.display = 'block';
+    document.getElementById('tokenResult').style.display = 'none';
+    document.getElementById('tokenName').value = '';
+    document.getElementById('generateModal').classList.add('open');
+    setTimeout(() => document.getElementById('tokenName').focus(), 100);
+  }
+
+  function closeGenerateModal() {
+    document.getElementById('generateModal').classList.remove('open');
+    fetchData();
+  }
+
+  async function generateToken() {
+    const name = document.getElementById('tokenName').value.trim() || 'token-' + Date.now();
+    try {
+      const res = await fetch('/api/tokens/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      document.getElementById('generatedToken').textContent = data.token;
+      document.getElementById('generatedName').value = data.name;
+      document.getElementById('sshCommand').textContent =
+        `ssh -N -R 0:localhost:3000 ${data.token}@tunnel.stadoor.app -p 2222`;
+      document.getElementById('generateForm').style.display = 'none';
+      document.getElementById('tokenResult').style.display = 'block';
+    } catch (e) {
+      showToast('❌ Failed to generate token', 'error');
+    }
+  }
+
+  async function revokeToken(token) {
+    if (!confirm('Revoke this token? Active tunnels using it will be disconnected.')) return;
+    try {
+      await fetch(`/api/tokens/${token}`, { method: 'DELETE' });
+      showToast('🗑️ Token revoked');
+      fetchData();
+    } catch (e) {
+      showToast('❌ Failed to revoke token', 'error');
+    }
+  }
+
+  function copyToken() {
+    navigator.clipboard.writeText(document.getElementById('generatedToken').textContent);
+    showToast('📋 Token copied!');
+  }
+
+  function copySSH() {
+    navigator.clipboard.writeText(document.getElementById('sshCommand').textContent);
+    showToast('📋 SSH command copied!');
+  }
+
+  // ── Toast ───────────────────────────────────────────────────────────────────
+  function showToast(message) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3500);
+  }
+
+  // ── Utilities ───────────────────────────────────────────────────────────────
+  function esc(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString();
+  }
+
+  // Close modal on backdrop click
+  document.getElementById('generateModal').addEventListener('click', function(e) {
+    if (e.target === this) closeGenerateModal();
+  });
+
+  // ── Bootstrap ───────────────────────────────────────────────────────────────
+  fetchData();
+  refreshTimer = setInterval(fetchData, REFRESH_MS);
+</script>
+</body>
+</html>

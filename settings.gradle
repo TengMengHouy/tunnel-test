@@ -1,0 +1,6 @@
+rootProject.name = 'stadoor'
+
+include 'common'
+include 'tunnel-server'
+include 'gateway-server'
+include 'dashboard'

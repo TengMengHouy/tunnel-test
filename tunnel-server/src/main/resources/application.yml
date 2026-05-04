@@ -1,0 +1,32 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: stadoor-tunnel-server
+  datasource:
+    url: jdbc:postgresql://localhost:5432/stadoor
+    username: stadoor
+    password: stadoor
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.yaml
+    enabled: true
+
+stadoor:
+  ssh:
+    port: 2222
+    hostkey: hostkey.ser
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
