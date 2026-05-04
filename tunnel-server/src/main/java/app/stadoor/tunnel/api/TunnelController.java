@@ -67,13 +67,15 @@ public class TunnelController {
 
     @DeleteMapping("/api/tokens/{token}")
     public ResponseEntity<Void> revokeToken(@PathVariable String token) {
-        return tokenRepository.findByTokenAndIsActiveTrue(token)
-                .map(t -> {
-                    t.setActive(false);
-                    tokenRepository.save(t);
-                    return ResponseEntity.<Void>noContent().build();
-                })
-                .orElse(ResponseEntity.<Void>notFound().build());
+        java.util.Optional<Token> optionalToken = tokenRepository.findByTokenAndIsActiveTrue(token);
+        if (optionalToken.isPresent()) {
+            Token t = optionalToken.get();
+            t.setActive(false);
+            tokenRepository.save(t);
+            return ResponseEntity.noContent().build();
+        } else {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     @GetMapping("/api/tokens")
