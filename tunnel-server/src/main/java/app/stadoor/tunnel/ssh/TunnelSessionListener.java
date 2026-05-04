@@ -7,9 +7,6 @@ import org.apache.sshd.common.session.Session;
 import org.apache.sshd.common.session.SessionListener;
 import org.springframework.stereotype.Component;
 
-/**
- * Listens for SSH session lifecycle events to clean up tunnels on disconnect.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -19,17 +16,19 @@ public class TunnelSessionListener implements SessionListener {
 
     @Override
     public void sessionCreated(Session session) {
-        log.debug("SSH session created: id={} remote={}", session.getId(), session.getClientAddress());
+        log.debug("SSH session created: remote={}", session.getRemoteAddress());
     }
 
     @Override
     public void sessionClosed(Session session) {
-        log.info("SSH session closed: id={}", session.getId());
-        tunnelManager.releaseSession(session.getId());
+        long sessionId = System.identityHashCode(session);
+        log.info("SSH session closed: id={}", sessionId);
+        tunnelManager.releaseSession(sessionId);
     }
 
     @Override
     public void sessionException(Session session, Throwable t) {
-        log.warn("SSH session exception: id={} error={}", session.getId(), t.getMessage());
+        log.warn("SSH session exception: id={} error={}",
+                System.identityHashCode(session), t.getMessage());
     }
 }

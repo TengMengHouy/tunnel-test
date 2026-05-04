@@ -4,6 +4,7 @@ import app.stadoor.common.entity.Token;
 import app.stadoor.common.repository.TokenRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.sshd.common.AttributeRepository;
 import org.apache.sshd.server.auth.password.PasswordAuthenticator;
 import org.apache.sshd.server.session.ServerSession;
 import org.springframework.stereotype.Component;
@@ -17,8 +18,12 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class TokenPasswordAuthenticator implements PasswordAuthenticator {
 
-    /** Session attribute key to store the validated Token entity. */
-    public static final String TOKEN_ATTR = "stadoor.token";
+    /**
+     * Shared AttributeKey instance — MINA SSHD uses object identity for key matching,
+     * so both the authenticator and the port-forwarding listener must reference this same instance.
+     */
+    public static final AttributeRepository.AttributeKey<Token> TOKEN_KEY =
+            new AttributeRepository.AttributeKey<>();
 
     private final TokenRepository tokenRepository;
 
@@ -26,17 +31,14 @@ public class TokenPasswordAuthenticator implements PasswordAuthenticator {
     public boolean authenticate(String username, String password, ServerSession session) {
         return tokenRepository.findByTokenAndIsActiveTrue(username)
                 .map(token -> {
-                    // Store the token entity so the port-forwarding listener can use it
-                    session.setAttribute(
-                            org.apache.sshd.common.AttributeRepository.AttributeKey.ofType(Token.class, TOKEN_ATTR),
-                            token
-                    );
+                    session.setAttribute(TOKEN_KEY, token);
                     log.info("Authenticated token '{}' (name: {}) from {}",
-                            username, token.getName(), session.getClientAddress());
+                            username, token.getName(), session.getRemoteAddress());
                     return true;
                 })
                 .orElseGet(() -> {
-                    log.warn("Authentication failed for token '{}' from {}", username, session.getClientAddress());
+                    log.warn("Authentication failed for token '{}' from {}",
+                            username, session.getRemoteAddress());
                     return false;
                 });
     }
